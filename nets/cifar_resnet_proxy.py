@@ -5,7 +5,7 @@ odic = OrderedDict
 
 
 class ResNet_Proxy:
-  def __init__(self, num_units, lim_type, ratio, min_action, lower_bound):
+  def __init__(self, num_units, lim_type, ratio, min_action, lower_bound, expand_ratio=1):
     # the minimum action for each layer
     self.lim_type = lim_type
     self.ratio = ratio
@@ -231,7 +231,8 @@ def resnet56_proxy(lim_type, ratio, min_action, lower_bound=True):
                       lim_type=lim_type,
                       ratio=ratio,
                       min_action=min_action,
-                      lower_bound=lower_bound)
+                      lower_bound=lower_bound,
+                      expand_ratio=4)
 
 
 if __name__ == '__main__':
