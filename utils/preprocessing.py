@@ -4,14 +4,15 @@ import torchvision.transforms as transforms
 def cifar_transform(is_training=True):
   # Data
   if is_training:
-    transform_list = [transforms.RandomHorizontalFlip(),
-                      transforms.Pad(4, padding_mode='reflect'),
-                      transforms.RandomCrop(32, padding=0), ]
+    transform_list = [transforms.RandomResizedCrop(224),
+                      transforms.RandomHorizontalFlip()]
     transform_list += [transforms.ToTensor(),
                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)), ]
   else:
     transform_list = []
-    transform_list += [transforms.ToTensor(),
+    transform_list += [transforms.Resize(256),
+                        transforms.CenterCrop(224),
+                       transforms.ToTensor(),
                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)), ]
 
   transform_list = transforms.Compose(transform_list)

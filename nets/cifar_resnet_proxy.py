@@ -23,12 +23,15 @@ class ResNet_Proxy:
     self.min_flops = OrderedDict()
 
     last_layer = 'conv0'
-    last_n = 16
-    fsize = 32
-    strides = [1] * num_units[0] + \
-              [2] + [1] * (num_units[1] - 1) + \
-              [2] + [1] * (num_units[2] - 1)
-    out_planes = [16] * num_units[0] + [32] * num_units[1] + [64] * num_units[2]
+    last_n = 64
+    fsize = 224
+    out_planes, strides = [], []
+    for id, num_unit in enumerate(num_units):
+      out_planes += [(16 * expand_ratio) * (2 ** id)] * num_unit
+      stride = [1] * num_unit
+      stride[0] = 1 if id == 0 else 2
+      strides.extend(stride)
+
     for i, (stride, n) in enumerate(zip(strides, out_planes)):
       if stride != 1:
         fsize /= 2
@@ -83,7 +86,7 @@ class ResNet_Proxy:
   def init_episode(self):
     name = self.name_to_next_name['conv0']
     self.layer_now = name
-    self.filters_now = [16]
+    self.filters_now = [64]
     self.paras_now = []
     self.flops_now = []
     self.actions_now = []
@@ -224,7 +227,7 @@ def resnet20_proxy(lim_type, ratio, min_action, lower_bound=True):
 
 
 def resnet56_proxy(lim_type, ratio, min_action, lower_bound=True):
-  return ResNet_Proxy(num_units=[9, 9, 9],
+  return ResNet_Proxy(num_units=[3, 4, 6, 3],
                       lim_type=lim_type,
                       ratio=ratio,
                       min_action=min_action,

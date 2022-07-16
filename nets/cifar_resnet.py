@@ -9,14 +9,24 @@ import torch.nn.init as init
 
 
 class PreActBlock(nn.Module):
-  def __init__(self, in_planes, out_planes, stride=1):
+  def __init__(self, in_planes, out_planes, stride=1, unit_type='wide'):
     super(PreActBlock, self).__init__()
+    meta_ksizes = [3, 3] if unit_type == 'wide' else [1, 3, 1]
+    meta_paddings = [1, 1] if unit_type == 'wide' else [0, 1, 0]
+    meta_strides = [stride, 1] if unit_type == 'wide' else [1, stride, 1]
+
     self.bn0 = nn.BatchNorm2d(in_planes)
-    self.conv0 = nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
+    self.conv0 = nn.Conv2d(in_planes, out_planes, kernel_size=meta_ksizes[0], stride=meta_strides[0], padding=meta_paddings[0], bias=False)
     self.register_buffer('mask0', torch.ones(1, out_planes, 1, 1))
     self.bn1 = nn.BatchNorm2d(out_planes)
-    self.conv1 = nn.Conv2d(out_planes, out_planes, kernel_size=3, stride=1, padding=1, bias=False)
+    self.conv1 = nn.Conv2d(out_planes, out_planes, kernel_size=meta_ksizes[1], stride=meta_strides[1], padding=meta_paddings[1], bias=False)
     self.register_buffer('mask1', torch.ones(1, out_planes, 1, 1))
+    if unit_type != 'wide':
+      self.bn2 = nn.BatchNorm2d(out_planes)
+      self.conv2 = nn.Conv2d(out_planes, out_planes * 4, kernel_size=meta_ksizes[2], stride=meta_strides[2], padding=meta_paddings[2], bias=False)
+      self.register_buffer('mask2', torch.ones(1, out_planes * 4, 1, 1))
+    else:
+      self.conv2 = None
 
     self.skip_conv = None
     if stride != 1:
@@ -42,16 +52,18 @@ class PreActBlock(nn.Module):
     conv1_input = out
     out = self.conv1(out)
     out = out * self.mask1
+    # if self.conv2:
+
     out += shortcut
     conv1_out = out
     return out, (conv0_input, conv1_input), (conv0_out, conv1_out, shortcut_out), shortcut
 
 
 class PreActResNet(nn.Module):
-  def __init__(self, block, num_units, num_classes):
+  def __init__(self, block, num_units, input_shape=32, unit_type='wide', expand_ratio=1, num_classes=10):
     super(PreActResNet, self).__init__()
 
-    self.conv0 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1, bias=False)
+    self.conv0 = nn.Conv2d(3, 16 * expand_ratio, kernel_size=3, stride=1, padding=1, bias=False)
 
     self.name_to_ind = OrderedDict()
     self.ind_to_name = OrderedDict()
@@ -60,34 +72,43 @@ class PreActResNet(nn.Module):
 
     self.layers = nn.ModuleList()
     last_layer = 'conv0'
-    last_n = 16
-    fsize = 32
-    strides = [1] * num_units[0] + \
-              [2] + [1] * (num_units[1] - 1) + \
-              [2] + [1] * (num_units[2] - 1)
-    out_planes = [16] * num_units[0] + [32] * num_units[1] + [64] * num_units[2]
+    last_n = 16 * expand_ratio
+    fsize = input_shape
+    out_planes, strides = [], []
+    for id, num_unit in enumerate(num_units):
+      out_planes += [(16 * expand_ratio) * (2 ** id)] * num_unit
+      stride = [1] * num_unit
+      stride[0] = 1 if id == 0 else 2
+      strides.extend(stride)
+    print(out_planes)
+    print(strides)
+
+
     for i, (stride, n) in enumerate(zip(strides, out_planes)):
-      self.layers.append(block(last_n, n, stride))
+      self.layers.append(block(last_n, n, stride, unit_type))
       if stride != 1:
         fsize /= 2
 
-      for j in range(2):
-        name = 'conv%d_%d' % (i, j)
-        self.name_to_ind[name] = (i, j)
-        self.ind_to_name[(i, j)] = name
-        self.meta_data[name] = {'n': n,
+      meta_ksizes = [3, 3] if unit_type == 'wide' else [1, 3, 1]
+      meta_paddings = [1, 1] if unit_type == 'wide' else [0, 1, 0]
+      meta_strides = [stride, 1] if unit_type == 'wide' else [1, stride, 1]
+      for id, (meta_ksize, meta_padding, meta_stride) in enumerate(zip(meta_ksizes, meta_paddings, meta_strides)):
+        name = 'conv%d_%d' % (i, id)
+        self.name_to_ind[name] = (i, id)
+        self.ind_to_name[(i, id)] = name
+        cur_channel = n * 4 if unit_type != 'wide' and id == 2 else n
+        self.meta_data[name] = {'n': cur_channel,
                                 'c': last_n,
-                                'ksize': 3,
-                                'padding': 1,
+                                'ksize': meta_ksize,
+                                'padding': meta_padding,
                                 'fsize': fsize,
-                                'stride': stride}
+                                'stride': meta_stride}
         self.name_to_next_name[last_layer] = name
         last_layer = name
         last_n = n
-        stride = 1
 
-    self.bn = nn.BatchNorm2d(64)
-    self.logit = nn.Linear(64, num_classes)
+    self.bn = nn.BatchNorm2d(out_planes[-1])
+    self.logit = nn.Linear(out_planes[-1],  num_classes)
 
     # Initialize weights
     for m in self.modules():
@@ -266,9 +287,11 @@ def resnet20():
   return PreActResNet(PreActBlock, [3, 3, 3], num_classes=10)
 
 
-def resnet56():
-  return PreActResNet(PreActBlock, [9, 9, 9], num_classes=10)
+# def resnet56():
+#   return PreActResNet(PreActBlock, [9, 9, 9], num_classes=10)
 
+def resnet56():
+  return PreActResNet(PreActBlock, [3, 4, 6, 3], input_shape=224, unit_type='wide', expand_ratio=4, num_classes=10)
 
 if __name__ == '__main__x':
   def hook(self, input, output):
