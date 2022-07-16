@@ -112,14 +112,14 @@ class PreActResNet(nn.Module):
     weight = eval('self.layers[ind[0]].conv%d.weight' % ind[1])
     return weight.detach().cpu().numpy()
 
-  def apply_1layer_mask(self, keep_inds, layer_name):
+  def apply_layer_mask(self, keep_inds, layer_name):
     ind = self.name_to_ind[layer_name]
     # set the keep_inds of the mask to 1.0, otherwise 0.0
     exec('self.layers[ind[0]].mask%d.fill_(0.0)' % ind[1])
     exec('self.layers[ind[0]].mask%d[0, keep_inds, 0, 0] = 1.0' % ind[1])
     return
 
-  def apply_1layer_weight(self, layer_name, keep_inds, weight):
+  def apply_layer_weight(self, layer_name, keep_inds, weight):
     ind = self.name_to_ind[layer_name]
     if keep_inds is not None:
       exec('self.layers[ind[0]].conv%d.weight.data[:, keep_inds, :, :] = weight[0]' % ind[1])
@@ -286,7 +286,7 @@ if __name__ == '__main__x':
   inp = net.conv_input(img, layer_name=layer_names[6], sample_inds=[3, 4, 5])
 
   net.apply_1layer_action(action=[0.5], layer_name=layer_names[0])
-  net.apply_1layer_weight(layer_name=layer_names[0],
+  net.apply_layer_weight(layer_name=layer_names[0],
                           keep_inds=np.arange(8),
                           weight=torch.zeros(16, 8, 3, 3))
 

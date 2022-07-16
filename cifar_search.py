@@ -43,7 +43,7 @@ parser.add_argument('--max_steps', type=int, default=500)
 
 cfg = parser.parse_args()
 
-cfg.pretrain_dir = os.path.join(cfg.root_dir, 'ckpt', cfg.pretrain_name + '.t7')
+cfg.pretrain_dir = os.path.join('.', 'ckpt', cfg.pretrain_name + '.t7')
 
 
 # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152

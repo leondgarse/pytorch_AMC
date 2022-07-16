@@ -212,7 +212,7 @@ class ResNet_Proxy:
       self.paras_now.append(3 * 3 * real_n * next_n / 1e6)
       self.flops_now.append(3 * 3 * real_n * next_n * next_fs ** 2 / 1e6)
 
-    return self.states_now[-1], real_a, done
+    return self.states_now[-1], real_a, int(real_n), done
 
 
 def resnet20_proxy(lim_type, ratio, min_action, lower_bound=True):

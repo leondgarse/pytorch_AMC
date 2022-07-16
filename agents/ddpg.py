@@ -7,7 +7,7 @@ import torch.optim as optim
 import torch.nn.init as init
 
 from agents.buffer import *
-from agents.prioritized_buffer import *
+# from agents.prioritized_buffer import *
 
 
 class Actor(nn.Module):
