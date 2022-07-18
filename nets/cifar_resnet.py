@@ -73,7 +73,7 @@ class PreActResNet(nn.Module):
     self.layers = nn.ModuleList()
     last_layer = 'conv0'
     last_n = 16 * expand_ratio
-    fsize = input_shape
+    fsize = 32  # input_shape
     out_planes, strides = [], []
     for id, num_unit in enumerate(num_units):
       out_planes += [(16 * expand_ratio) * (2 ** id)] * num_unit

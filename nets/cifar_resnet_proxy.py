@@ -24,7 +24,7 @@ class ResNet_Proxy:
 
     last_layer = 'conv0'
     last_n = 64
-    fsize = 224
+    fsize = 32  # 224
     out_planes, strides = [], []
     for id, num_unit in enumerate(num_units):
       out_planes += [(16 * expand_ratio) * (2 ** id)] * num_unit
